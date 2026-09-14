@@ -1,0 +1,551 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  CONTRIBUTOR
+  ORGANIZATION
+  ADMIN
+}
+
+enum SourceType {
+  OFFICIAL
+  VERIFIED_STUDENT
+  COMMUNITY
+  UNVERIFIED
+}
+
+enum OpportunityType {
+  INTERNSHIP
+  PLACEMENT
+  PROJECT
+  COMPETITION
+}
+
+enum OpportunityStatus {
+  OPEN
+  CLOSED
+  UNKNOWN
+}
+
+enum EventType {
+  WORKSHOP
+  HACKATHON
+  CLUB_EVENT
+  GUEST_LECTURE
+  COMPETITION
+  EXAM
+  DEADLINE
+  HOLIDAY
+  OTHER
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportReason {
+  INAPPROPRIATE
+  MISINFORMATION
+  SPAM
+  HARASSMENT
+  OTHER
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  password      String?
+  role          Role      @default(STUDENT)
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Profile
+  profile       Profile?
+
+  // Contributions
+  resources          Resource[]
+  questionPapers     QuestionPaper[]
+  vivaQuestions      VivaQuestion[]
+  vivaAnswers        VivaAnswer[]
+  discussions        Discussion[]
+  answers            Answer[]
+  opportunitiesAdded Opportunity[]
+  placementExp       PlacementExperience[]
+  professorInsights  ProfessorInsight[]
+  events             Event[]
+  announcements      Announcement[]
+  bookmarks          Bookmark[]
+  votes              Vote[]
+  reports            Report[]
+  notifications      Notification[]
+  contributions      Contribution[]
+  badges             UserBadge[]
+
+  // NextAuth
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String?
+  year         Int?     // 1, 2, 3, 4
+  semester     Int?
+  rollNumber   String?
+  skills       String[] // array of skills
+  interests    String[]
+  points       Int      @default(0)
+  departmentId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id])
+}
+
+// ─── Academic Structure ───────────────────────────────────────────────────────
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique // "Computer Science Engineering"
+  code        String   @unique // "CSE"
+  description String?
+  createdAt   DateTime @default(now())
+
+  profiles    Profile[]
+  subjects    Subject[]
+  professors  Professor[]
+}
+
+model Subject {
+  id           String   @id @default(cuid())
+  name         String
+  code         String?
+  description  String?
+  year         Int      // 1-4
+  semester     Int      // 1-8
+  departmentId String
+  createdAt    DateTime @default(now())
+
+  department     Department      @relation(fields: [departmentId], references: [id])
+  professors     ProfessorSubject[]
+  resources      Resource[]
+  questionPapers QuestionPaper[]
+  vivaQuestions  VivaQuestion[]
+  discussions    Discussion[]
+
+  @@unique([code, departmentId])
+}
+
+model Professor {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  departmentId String
+  designation  String?
+  imageUrl     String?
+  createdAt    DateTime @default(now())
+
+  department Department         @relation(fields: [departmentId], references: [id])
+  subjects   ProfessorSubject[]
+  insights   ProfessorInsight[]
+  vivaQuestions VivaQuestion[]
+}
+
+model ProfessorSubject {
+  professorId String
+  subjectId   String
+
+  professor Professor @relation(fields: [professorId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+
+  @@id([professorId, subjectId])
+}
+
+model ProfessorInsight {
+  id          String        @id @default(cuid())
+  professorId String
+  authorId    String
+  content     String        @db.Text
+  category    String        // "exam_pattern", "viva_pattern", "assignment_style", "preparation_tip"
+  isAnonymous Boolean       @default(false)
+  status      ContentStatus @default(PENDING)
+  upvotes     Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  professor Professor @relation(fields: [professorId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id])
+}
+
+// ─── Resources ────────────────────────────────────────────────────────────────
+
+model Resource {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  fileUrl     String?
+  externalUrl String?
+  fileType    String?       // "pdf", "link", "image"
+  type        String        // "notes", "previous_paper", "lab_material", "reference"
+  subjectId   String
+  uploadedBy  String
+  source      SourceType    @default(COMMUNITY)
+  status      ContentStatus @default(PENDING)
+  downloads   Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  subject Subject @relation(fields: [subjectId], references: [id])
+  uploader User    @relation(fields: [uploadedBy], references: [id])
+  votes   Vote[]
+}
+
+model QuestionPaper {
+  id         String        @id @default(cuid())
+  title      String
+  year       Int           // academic year e.g. 2023
+  semester   Int
+  examType   String        // "internal", "external", "viva"
+  fileUrl    String?
+  subjectId  String
+  uploadedBy String
+  status     ContentStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+
+  subject  Subject @relation(fields: [subjectId], references: [id])
+  uploader User    @relation(fields: [uploadedBy], references: [id])
+}
+
+// ─── Viva Bank ────────────────────────────────────────────────────────────────
+
+model VivaQuestion {
+  id          String        @id @default(cuid())
+  question    String        @db.Text
+  subjectId   String
+  professorId String?
+  semester    Int?
+  year        Int?
+  authorId    String
+  isAnonymous Boolean       @default(false)
+  status      ContentStatus @default(APPROVED)
+  upvotes     Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  subject   Subject      @relation(fields: [subjectId], references: [id])
+  professor Professor?   @relation(fields: [professorId], references: [id])
+  author    User         @relation(fields: [authorId], references: [id])
+  answers   VivaAnswer[]
+  votes     Vote[]
+}
+
+model VivaAnswer {
+  id             String   @id @default(cuid())
+  vivaQuestionId String
+  content        String   @db.Text
+  authorId       String
+  isAnonymous    Boolean  @default(false)
+  upvotes        Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  question VivaQuestion @relation(fields: [vivaQuestionId], references: [id])
+  author   User         @relation(fields: [authorId], references: [id])
+  votes    Vote[]
+}
+
+// ─── Community ────────────────────────────────────────────────────────────────
+
+model Discussion {
+  id          String        @id @default(cuid())
+  title       String
+  body        String        @db.Text
+  tags        String[]
+  subjectId   String?
+  authorId    String
+  isAnonymous Boolean       @default(false)
+  status      ContentStatus @default(APPROVED)
+  views       Int           @default(0)
+  upvotes     Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  subject Subject?  @relation(fields: [subjectId], references: [id])
+  author  User      @relation(fields: [authorId], references: [id])
+  answers Answer[]
+  votes   Vote[]
+  reports Report[]
+}
+
+model Answer {
+  id           String   @id @default(cuid())
+  discussionId String
+  content      String   @db.Text
+  authorId     String
+  isAnonymous  Boolean  @default(false)
+  isAccepted   Boolean  @default(false)
+  upvotes      Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id])
+  author     User       @relation(fields: [authorId], references: [id])
+  votes      Vote[]
+}
+
+// ─── Opportunities ────────────────────────────────────────────────────────────
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  logoUrl     String?
+  website     String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  opportunities       Opportunity[]
+  placementExperiences PlacementExperience[]
+}
+
+model Opportunity {
+  id                String            @id @default(cuid())
+  title             String
+  companyId         String?
+  companyName       String?           // for community submissions without a company record
+  type              OpportunityType
+  description       String?           @db.Text
+  eligibleBranches  String[]
+  minCGPA           Float?
+  targetYear        Int[]             // e.g. [3, 4]
+  location          String?
+  stipend           String?
+  applicationDeadline DateTime?
+  applicationLink   String?
+  source            SourceType        @default(COMMUNITY)
+  status            OpportunityStatus @default(OPEN)
+  submittedBy       String
+  contentStatus     ContentStatus     @default(PENDING)
+  createdAt         DateTime          @default(now())
+
+  company   Company?   @relation(fields: [companyId], references: [id])
+  submitter User       @relation(fields: [submittedBy], references: [id])
+  bookmarks Bookmark[]
+}
+
+model PlacementExperience {
+  id              String        @id @default(cuid())
+  companyId       String?
+  companyName     String?
+  role            String
+  type            OpportunityType
+  year            Int           // academic year placed
+  selectionRounds Json          // [{round: 1, type: "OA", description: "..."}]
+  preparation     String[]      // topics prepared
+  experience      String        @db.Text
+  outcome         String?       // "selected", "rejected", "waitlisted"
+  authorId        String
+  isAnonymous     Boolean       @default(false)
+  status          ContentStatus @default(PENDING)
+  upvotes         Int           @default(0)
+  createdAt       DateTime      @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  author  User     @relation(fields: [authorId], references: [id])
+  votes   Vote[]
+}
+
+// ─── Campus ───────────────────────────────────────────────────────────────────
+
+model Event {
+  id                  String    @id @default(cuid())
+  title               String
+  description         String?   @db.Text
+  type                EventType
+  startDate           DateTime
+  endDate             DateTime?
+  location            String?
+  organizer           String?
+  organizerId         String?
+  registrationDeadline DateTime?
+  registrationLink    String?
+  source              SourceType @default(COMMUNITY)
+  status              ContentStatus @default(PENDING)
+  createdAt           DateTime  @default(now())
+
+  organizedBy User?      @relation(fields: [organizerId], references: [id])
+  bookmarks   Bookmark[]
+}
+
+model Announcement {
+  id        String        @id @default(cuid())
+  title     String
+  body      String        @db.Text
+  source    SourceType    @default(OFFICIAL)
+  tags      String[]
+  authorId  String
+  pinned    Boolean       @default(false)
+  status    ContentStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ─── Admin Info ───────────────────────────────────────────────────────────────
+
+model AdminInfo {
+  id        String   @id @default(cuid())
+  category  String   // "fee_office", "exam_cell", "library", etc.
+  title     String
+  content   String   @db.Text
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// ─── Interactions ─────────────────────────────────────────────────────────────
+
+model Vote {
+  id     String @id @default(cuid())
+  userId String
+  value  Int    // +1 or -1
+
+  resourceId         String?
+  vivaQuestionId     String?
+  vivaAnswerId       String?
+  discussionId       String?
+  answerId           String?
+  placementExpId     String?
+
+  createdAt DateTime @default(now())
+
+  user             User                @relation(fields: [userId], references: [id])
+  resource         Resource?           @relation(fields: [resourceId], references: [id])
+  vivaQuestion     VivaQuestion?       @relation(fields: [vivaQuestionId], references: [id])
+  vivaAnswer       VivaAnswer?         @relation(fields: [vivaAnswerId], references: [id])
+  discussion       Discussion?         @relation(fields: [discussionId], references: [id])
+  answer           Answer?             @relation(fields: [answerId], references: [id])
+  placementExp     PlacementExperience? @relation(fields: [placementExpId], references: [id])
+}
+
+model Bookmark {
+  id            String   @id @default(cuid())
+  userId        String
+  opportunityId String?
+  eventId       String?
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+  event       Event?       @relation(fields: [eventId], references: [id])
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String
+  reason       ReportReason
+  description  String?
+  discussionId String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  reporter   User        @relation(fields: [reporterId], references: [id])
+  discussion Discussion? @relation(fields: [discussionId], references: [id])
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+model Contribution {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "upload_resource", "answer_question", "add_viva", "placement_exp", etc.
+  points      Int
+  referenceId String?  // id of the contributed item
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String
+  icon        String
+  threshold   Int         // points required
+
+  users UserBadge[]
+}
+
+model UserBadge {
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@id([userId, badgeId])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
