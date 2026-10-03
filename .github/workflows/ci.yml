@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./ci.db
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-only-secret-not-used-in-production-000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - name: Check schema and seed
+        run: |
+          npx prisma db push --skip-generate
+          npm run db:seed
+      - run: npm run build
+
+  docker:
+    needs: lint-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: college-hub:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test container
+        run: |
+          docker run -d --name app -p 3000:3000 -e NEXTAUTH_SECRET=smoke-test-secret-000000000000000 college-hub:${{ github.sha }}
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/login > /dev/null && echo "App is up" && exit 0
+            sleep 2
+          done
+          docker logs app
+          exit 1

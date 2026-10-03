@@ -11,13 +11,11 @@ export async function GET(req: NextRequest) {
   const year = searchParams.get("year");
 
   try {
-    const opportunities = await prisma.opportunity.findMany({
+    const all = await prisma.opportunity.findMany({
       where: {
         contentStatus: "APPROVED",
         status: "OPEN",
         ...(type ? { type: type as "INTERNSHIP" | "PLACEMENT" | "PROJECT" | "COMPETITION" } : {}),
-        ...(branch ? { eligibleBranches: { has: branch } } : {}),
-        ...(year ? { targetYear: { has: parseInt(year) } } : {}),
       },
       orderBy: { createdAt: "desc" },
       include: {
@@ -25,6 +23,10 @@ export async function GET(req: NextRequest) {
         submitter: { select: { name: true } },
       },
     });
+    const opportunities = all.filter((o) =>
+      (!branch || (o.eligibleBranches as string[]).includes(branch)) &&
+      (!year || (o.targetYear as number[]).includes(parseInt(year)))
+    );
     return NextResponse.json({ opportunities });
   } catch (error) {
     console.error("GET /api/opportunities error:", error);

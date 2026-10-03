@@ -12,12 +12,12 @@ export async function GET(req: NextRequest) {
   try {
     const [subjects, vivaQuestions, discussions, opportunities, professors] = await Promise.all([
       prisma.subject.findMany({
-        where: { OR: [{ name: { contains: q, mode: "insensitive" } }, { code: { contains: q, mode: "insensitive" } }] },
+        where: { OR: [{ name: { contains: q } }, { code: { contains: q } }] },
         take: 5,
         include: { department: { select: { code: true } } },
       }),
       prisma.vivaQuestion.findMany({
-        where: { question: { contains: q, mode: "insensitive" }, status: "APPROVED" },
+        where: { question: { contains: q }, status: "APPROVED" },
         take: 5,
         include: { subject: { select: { name: true } } },
       }),
@@ -25,8 +25,7 @@ export async function GET(req: NextRequest) {
         where: {
           status: "APPROVED",
           OR: [
-            { title: { contains: q, mode: "insensitive" } },
-            { tags: { has: q } },
+            { title: { contains: q } },
           ],
         },
         take: 5,
@@ -35,14 +34,14 @@ export async function GET(req: NextRequest) {
         where: {
           contentStatus: "APPROVED",
           OR: [
-            { title: { contains: q, mode: "insensitive" } },
-            { companyName: { contains: q, mode: "insensitive" } },
+            { title: { contains: q } },
+            { companyName: { contains: q } },
           ],
         },
         take: 5,
       }),
       prisma.professor.findMany({
-        where: { name: { contains: q, mode: "insensitive" } },
+        where: { name: { contains: q } },
         take: 3,
         include: { department: { select: { code: true } } },
       }),
@@ -68,14 +67,14 @@ export async function GET(req: NextRequest) {
         title: d.title,
         subtitle: `Community · ${d.views} views`,
         href: `/community/${d.id}`,
-        tags: d.tags.slice(0, 3),
+        tags: (d.tags as string[]).slice(0, 3),
       })),
       ...opportunities.map((o) => ({
         type: "placement",
         title: `${o.companyName ?? "Company"} — ${o.title}`,
         subtitle: `${o.type} · ${o.status}`,
         href: `/placements`,
-        tags: [o.type, o.eligibleBranches[0] ?? ""],
+        tags: [o.type, (o.eligibleBranches as string[])[0] ?? ""],
       })),
       ...professors.map((p) => ({
         type: "professor",

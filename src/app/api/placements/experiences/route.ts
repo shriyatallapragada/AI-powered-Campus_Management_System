@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const where = {
       status: "APPROVED" as const,
       ...(type ? { type: type as "INTERNSHIP" | "PLACEMENT" | "PROJECT" | "COMPETITION" } : {}),
-      ...(company ? { companyName: { contains: company, mode: "insensitive" as const } } : {}),
+      ...(company ? { companyName: { contains: company } } : {}),
     };
 
     const [experiences, total] = await Promise.all([

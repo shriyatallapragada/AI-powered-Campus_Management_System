@@ -53,8 +53,8 @@ export default function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
   const [query, setQuery] = useState(initialQuery);
-  const [isSearching, setIsSearching] = useState(false);
   const debouncedQuery = useDebounce(query, 300);
+  const isSearching = query.trim() !== "" && query !== debouncedQuery;
 
   const results = debouncedQuery.trim()
     ? allResults.filter((r) => {
@@ -66,14 +66,6 @@ export default function SearchContent() {
         );
       })
     : [];
-
-  useEffect(() => {
-    if (debouncedQuery) {
-      setIsSearching(true);
-      const t = setTimeout(() => setIsSearching(false), 200);
-      return () => clearTimeout(t);
-    }
-  }, [debouncedQuery]);
 
   const popularSearches = [
     "DBMS viva questions",

@@ -14,9 +14,14 @@ export async function GET(req: NextRequest) {
   try {
     const where = {
       status: "APPROVED" as const,
-      ...(tag ? { tags: { has: tag } } : {}),
       ...(subjectId ? { subjectId } : {}),
     };
+
+    // SQLite has no array columns; resolve tag matches in JS
+    if (tag) {
+      const tagged = await prisma.discussion.findMany({ where, select: { id: true, tags: true } });
+      Object.assign(where, { id: { in: tagged.filter((d) => (d.tags as string[]).includes(tag)).map((d) => d.id) } });
+    }
 
     const [discussions, total] = await Promise.all([
       prisma.discussion.findMany({

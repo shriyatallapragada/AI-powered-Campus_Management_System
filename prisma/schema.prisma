@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -109,12 +109,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -147,8 +147,8 @@ model Profile {
   year         Int?     // 1, 2, 3, 4
   semester     Int?
   rollNumber   String?
-  skills       String[] // array of skills
-  interests    String[]
+  skills       Json @default("[]")    // array of skills
+  interests    Json @default("[]")   
   points       Int      @default(0)
   departmentId String?
   createdAt    DateTime @default(now())
@@ -221,7 +221,7 @@ model ProfessorInsight {
   id          String        @id @default(cuid())
   professorId String
   authorId    String
-  content     String        @db.Text
+  content     String       
   category    String        // "exam_pattern", "viva_pattern", "assignment_style", "preparation_tip"
   isAnonymous Boolean       @default(false)
   status      ContentStatus @default(PENDING)
@@ -274,7 +274,7 @@ model QuestionPaper {
 
 model VivaQuestion {
   id          String        @id @default(cuid())
-  question    String        @db.Text
+  question    String       
   subjectId   String
   professorId String?
   semester    Int?
@@ -295,7 +295,7 @@ model VivaQuestion {
 model VivaAnswer {
   id             String   @id @default(cuid())
   vivaQuestionId String
-  content        String   @db.Text
+  content        String  
   authorId       String
   isAnonymous    Boolean  @default(false)
   upvotes        Int      @default(0)
@@ -311,8 +311,8 @@ model VivaAnswer {
 model Discussion {
   id          String        @id @default(cuid())
   title       String
-  body        String        @db.Text
-  tags        String[]
+  body        String       
+  tags        Json @default("[]")   
   subjectId   String?
   authorId    String
   isAnonymous Boolean       @default(false)
@@ -332,7 +332,7 @@ model Discussion {
 model Answer {
   id           String   @id @default(cuid())
   discussionId String
-  content      String   @db.Text
+  content      String  
   authorId     String
   isAnonymous  Boolean  @default(false)
   isAccepted   Boolean  @default(false)
@@ -364,10 +364,10 @@ model Opportunity {
   companyId         String?
   companyName       String?           // for community submissions without a company record
   type              OpportunityType
-  description       String?           @db.Text
-  eligibleBranches  String[]
+  description       String?          
+  eligibleBranches  Json @default("[]")   
   minCGPA           Float?
-  targetYear        Int[]             // e.g. [3, 4]
+  targetYear        Json @default("[]")                // e.g. [3, 4]
   location          String?
   stipend           String?
   applicationDeadline DateTime?
@@ -391,8 +391,8 @@ model PlacementExperience {
   type            OpportunityType
   year            Int           // academic year placed
   selectionRounds Json          // [{round: 1, type: "OA", description: "..."}]
-  preparation     String[]      // topics prepared
-  experience      String        @db.Text
+  preparation     Json @default("[]")         // topics prepared
+  experience      String       
   outcome         String?       // "selected", "rejected", "waitlisted"
   authorId        String
   isAnonymous     Boolean       @default(false)
@@ -410,7 +410,7 @@ model PlacementExperience {
 model Event {
   id                  String    @id @default(cuid())
   title               String
-  description         String?   @db.Text
+  description         String?  
   type                EventType
   startDate           DateTime
   endDate             DateTime?
@@ -430,9 +430,9 @@ model Event {
 model Announcement {
   id        String        @id @default(cuid())
   title     String
-  body      String        @db.Text
+  body      String       
   source    SourceType    @default(OFFICIAL)
-  tags      String[]
+  tags      Json @default("[]")   
   authorId  String
   pinned    Boolean       @default(false)
   status    ContentStatus @default(PENDING)
@@ -447,7 +447,7 @@ model AdminInfo {
   id        String   @id @default(cuid())
   category  String   // "fee_office", "exam_cell", "library", etc.
   title     String
-  content   String   @db.Text
+  content   String  
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
