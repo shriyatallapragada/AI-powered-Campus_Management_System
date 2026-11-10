@@ -18,6 +18,7 @@ College Hub solves a real problem: useful college information is scattered acros
 | **Community** | Anonymous Q&A — ask seniors anything without needing to know them personally |
 | **Campus** | Events, workshops, hackathons, notices, academic calendar |
 | **Search** | One search bar across subjects, viva questions, companies, discussions, professors |
+| **AI Assistant** | Ask questions in natural language; Ollama answers using matching College Hub content and links to sources |
 | **Profiles** | Contribution points, badges, activity history — recognition for sharing knowledge |
 | **Admin** | Moderation panel, approvals queue, user and content management |
 
@@ -112,6 +113,9 @@ DATABASE_URL="postgresql://postgres:password@localhost:5432/college_hub"
 # NextAuth — any random string, minimum 32 characters
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="replace-this-with-a-random-32-char-string"
+# Local Ollama server and model (optional; these are the defaults)
+OLLAMA_BASE_URL="http://127.0.0.1:11434"
+OLLAMA_MODEL="llama3.1"
 ```
 
 > **Quick PostgreSQL setup on macOS**
@@ -146,6 +150,10 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+### Local AI assistant
+
+Install and start [Ollama](https://ollama.com), then download the model configured by `OLLAMA_MODEL` (default: `llama3.1`) with `ollama pull llama3.1`. The assistant uses Ollama's local `/api/chat` endpoint and retrieves approved College Hub content to provide context and source links. Set `OLLAMA_BASE_URL` and `OLLAMA_MODEL` in `.env.local` to use a different local Ollama server or model.
 
 ---
 
@@ -187,6 +195,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | `/community/ask` | Ask a question (optionally anonymous) |
 | `/community/[id]` | Discussion thread with answers |
 | `/search` | Global search |
+| `/assistant` | Ask the AI assistant about content in the College Hub |
 | `/notifications` | Notification centre |
 | `/profile` | Your profile, points, badges, contributions |
 | `/profile/edit` | Edit profile, skills, interests |
@@ -223,6 +232,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | `GET` | `/api/placements/experiences` | List placement experiences |
 | `POST` | `/api/placements/experiences` | Share a placement experience |
 | `GET` | `/api/search?q=query` | Global full-text search |
+| `POST` | `/api/assistant` | Retrieve College Hub sources and generate a grounded answer with Ollama |
 
 All `POST` endpoints require an authenticated session (cookie/JWT).
 
@@ -268,7 +278,6 @@ npm run db:reset     # Drop all data and re-seed from scratch
 
 Per the original brief, these are planned for after the MVP proves useful:
 
-- AI assistant — answers questions using platform content (RAG over viva questions, papers, discussions)
 - Full-text search via PostgreSQL `tsvector` / pgvector
 - Email OTP verification for college email domains
 - File uploads via Cloudinary (currently supports external links)

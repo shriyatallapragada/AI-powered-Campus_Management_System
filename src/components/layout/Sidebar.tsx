@@ -14,6 +14,7 @@ import {
   Bell,
   ChevronRight,
   GraduationCap,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/opportunities", label: "Opportunities", icon: Compass },
   { href: "/campus", label: "Campus", icon: Building2 },
   { href: "/community", label: "Community", icon: MessageSquare },
+  { href: "/assistant", label: "AI Assistant", icon: Sparkles },
 ];
 
 export function Sidebar() {
@@ -87,7 +89,7 @@ export function TopBar() {
   const currentLabel =
     navItems.find(({ href }) =>
       href === "/" ? pathname === "/" : pathname.startsWith(href)
-    )?.label ?? "Profile";
+    )?.label ?? (pathname.startsWith("/assistant") ? "AI Assistant" : "Profile");
 
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-slate-100 h-14 flex items-center px-4 lg:pl-64 gap-4">
