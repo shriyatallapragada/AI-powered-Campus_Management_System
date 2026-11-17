@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       ...adminInfo.map((item) => ({ type: "College information", title: item.title, detail: item.content.slice(0, 160), href: "/campus" })),
     ].slice(0, 10);
 
-    const model = process.env.GROQ_MODEL ?? "llama-3.1-8b-instant";
+    const model = process.env.GROQ_MODEL ?? "openai/gpt-oss-20b";
     const context = sources
       .map((source, index) => `[${index + 1}] ${source.type}: ${source.title}\nDetails: ${source.detail}`)
       .join("\n\n");
