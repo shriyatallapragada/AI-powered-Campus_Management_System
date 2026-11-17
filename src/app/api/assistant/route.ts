@@ -30,13 +30,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ answer: "Try including a subject, professor, company, or campus topic.", sources: [] });
   }
 
+  // Map common natural-language phrases to the resource type values stored in the DB
+  const RESOURCE_TYPE_ALIASES: Record<string, string> = {
+    notes: "notes",
+    note: "notes",
+    material: "notes",
+    materials: "notes",
+    paper: "previous_paper",
+    papers: "previous_paper",
+    previous: "previous_paper",
+    pyq: "previous_paper",
+    pyqs: "previous_paper",
+    lab: "lab_material",
+    labs: "lab_material",
+    practical: "lab_material",
+    reference: "reference",
+    book: "reference",
+    books: "reference",
+  };
+  const resourceTypeTerms = [...new Set(terms.map((t) => RESOURCE_TYPE_ALIASES[t]).filter(Boolean))];
+
   try {
     const match = (field: string, term: string) => ({ [field]: { contains: term, mode: "insensitive" as const } });
     const matches = (field: string) => terms.map((term) => match(field, term));
     const [subjects, resources, papers, viva, discussions, opportunities, experiences, professors, professorInsights, events, announcements, adminInfo] = await Promise.all([
       prisma.subject.findMany({ where: { OR: [...matches("name"), ...matches("code")] }, take: 3, include: { department: true } }),
-      prisma.resource.findMany({ where: { status: "APPROVED", OR: matches("title") }, take: 4, include: { subject: true } }),
-      prisma.questionPaper.findMany({ where: { status: "APPROVED", OR: matches("title") }, take: 3, include: { subject: true } }),
+      prisma.resource.findMany({
+        where: {
+          status: "APPROVED",
+          OR: [
+            ...matches("title"),
+            ...(resourceTypeTerms.length ? resourceTypeTerms.map((t) => ({ type: { equals: t } })) : []),
+          ],
+        },
+        take: 4,
+        include: { subject: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.questionPaper.findMany({
+        where: resourceTypeTerms.includes("previous_paper") && terms.filter((t) => !["find", "get", "show", "notes", "previous", "paper", "papers"].includes(t)).length === 0
+          // Pure "previous papers" query with no subject — return recent ones
+          ? { status: "APPROVED" }
+          : { status: "APPROVED", OR: matches("title") },
+        take: 3,
+        include: { subject: true },
+        orderBy: { createdAt: "desc" },
+      }),
       prisma.vivaQuestion.findMany({ where: { status: "APPROVED", OR: matches("question") }, take: 4, include: { subject: true, professor: true } }),
       prisma.discussion.findMany({ where: { status: "APPROVED", OR: [...matches("title"), ...matches("body")] }, take: 4 }),
       prisma.opportunity.findMany({ where: { contentStatus: "APPROVED", OR: [...matches("title"), ...matches("companyName")] }, take: 4 }),
